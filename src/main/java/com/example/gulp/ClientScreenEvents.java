@@ -1,7 +1,9 @@
 package com.example.gulp;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.Font;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.world.entity.player.Inventory;
@@ -59,19 +61,60 @@ public final class ClientScreenEvents {
         int bh = 12;
         int by = screen.getGuiTop() + 3;
         int right = screen.getGuiLeft() + screen.getXSize() - 7;
-        // With the Nutrient Absorption perk the buttons say "Eat" (food in the first slot is eaten for hunger).
-        boolean eat = ClientState.rank(Perk.NUTRIENT) > 0;
-        String verb = eat ? "Eat" : "Dig";
-        String what = eat ? "Eat (food) or digest" : "Digest";
-        Button digest64 = Button.builder(Component.literal(verb + " 64"), btn -> Net.send(10, 64))
+        // The buttons ALWAYS say "Eat", whatever the item is (food, blocks, gear, junk).
+        Button digest64 = Button.builder(Component.literal("Eat 64"), btn -> Net.send(10, 64))
                 .bounds(right - bw, by, bw, bh)
-                .tooltip(Tooltip.create(Component.literal(what + " up to 64 of the item in the first slot")))
+                .tooltip(Tooltip.create(Component.literal("Eat up to 64 of the item in the first slot")))
                 .build();
-        Button digest1 = Button.builder(Component.literal(verb + " 1"), btn -> Net.send(10, 1))
+        Button digest1 = Button.builder(Component.literal("Eat 1"), btn -> Net.send(10, 1))
                 .bounds(right - bw * 2 - 2, by, bw, bh)
-                .tooltip(Tooltip.create(Component.literal(what + " 1 of the item in the first slot")))
+                .tooltip(Tooltip.create(Component.literal("Eat 1 of the item in the first slot")))
                 .build();
         e.addListener(digest1);
         e.addListener(digest64);
+    }
+
+    // ------------------------------------------------------------------ Iron Gut progress tracker
+
+    private static final int BAR_W = 90;
+
+    /** Just under the storage window (or just above it when there's no room below). */
+    private static int trackerY(ContainerScreen screen) {
+        int y = screen.getGuiTop() + screen.getYSize() + 4;
+        return y + 22 > screen.height ? Math.max(2, screen.getGuiTop() - 24) : y;
+    }
+
+    /**
+     * Draws "Digestion Progress: X / 32 Items" with a thin bar, and the payout tooltip when the mouse is over it.
+     * The numbers come from ClientState (synced from the server every time the stomach changes).
+     */
+    @SubscribeEvent
+    public static void onStorageRender(ScreenEvent.Render.Post e) {
+        if (!(e.getScreen() instanceof ContainerScreen screen)) return;
+        if (!Gulp.STORAGE_TITLE.equals(screen.getTitle().getString())) return;
+
+        Font font = Minecraft.getInstance().font;
+        GuiGraphics g = e.getGuiGraphics();
+        int progress = ClientState.digestProgress();
+        int threshold = StomachItems.DIGEST_THRESHOLD;
+        String text = "Digestion Progress: " + progress + " / " + threshold + " Items";
+
+        int w = Math.max(font.width(text), BAR_W);
+        int x = screen.getGuiLeft() + (screen.getXSize() - w) / 2;
+        int y = trackerY(screen);
+        g.drawString(font, text, x, y, 0xFFFFFF, true);
+        // thin progress bar under the text
+        int by = y + 11;
+        g.fill(x, by, x + w, by + 4, 0xFF000000);
+        g.fill(x + 1, by + 1, x + w - 1, by + 3, 0xFF333333);
+        int fill = (int) ((w - 2) * Math.min(1f, progress / (float) threshold));
+        g.fill(x + 1, by + 1, x + 1 + fill, by + 3, 0xFF5DB85D);
+
+        if (e.getMouseX() >= x && e.getMouseX() <= x + w && e.getMouseY() >= y && e.getMouseY() <= by + 4) {
+            float bars = StomachItems.hungerBars(ClientState.rank(Perk.UNIVERSAL));
+            String tip = String.format("Eats %d items to restore hunger. Current Payout: %.1f Hunger Bars per %d items.",
+                    threshold, bars, threshold);
+            g.renderTooltip(font, font.split(Component.literal(tip), 190), e.getMouseX(), e.getMouseY());
+        }
     }
 }

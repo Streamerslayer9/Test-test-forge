@@ -42,6 +42,9 @@ public class Stomach {
     /** MCA: "predator" status. Grows when you swallow/digest villagers, fades with time (see McaIntegration). */
     public int predator = 0;
 
+    /** Universal Digestion (Iron Gut): items eaten since the last hunger payout, always 0..31 (see StomachItems.DIGEST_THRESHOLD). */
+    public int digestProgress = 0;
+
     public transient int cooldown = 0;
 
     /**
@@ -149,6 +152,7 @@ public class Stomach {
         nbt.put("Perks", perks);
         nbt.putBoolean("AllowSwallowed", allowSwallowed);
         nbt.putInt("Predator", predator);
+        nbt.putInt("DigestProgress", digestProgress);
         nbt.put("Storage", ContainerHelper.saveAllItems(new CompoundTag(), storage));
         ListTag list = new ListTag();
         list.addAll(contents);
@@ -164,6 +168,7 @@ public class Stomach {
         s.points = nbt.contains("Points") ? nbt.getInt("Points") : s.level - 1;
         s.allowSwallowed = nbt.getBoolean("AllowSwallowed");
         s.predator = Math.max(0, nbt.getInt("Predator"));
+        s.digestProgress = Math.max(0, Math.min(StomachItems.DIGEST_THRESHOLD - 1, nbt.getInt("DigestProgress")));
         ContainerHelper.loadAllItems(nbt.getCompound("Storage"), s.storage);
         CompoundTag perks = nbt.getCompound("Perks");
         for (Perk p : Perk.values()) s.ranks[p.ordinal()] = Math.min(p.maxRank, perks.getInt(p.name()));

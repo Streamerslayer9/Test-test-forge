@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +20,7 @@ import java.util.Random;
  */
 public class PerkTreeScreen extends Screen {
     private static final int W = 320;
-    private static final int H = 250;
+    private static final int H = 272;
 
     private static final int GROWTH = 0xFF5BD6A0;
     private static final int LOOT = 0xFF58A6FF;
@@ -36,6 +37,7 @@ public class PerkTreeScreen extends Screen {
     private static final int ORBIT_RY = 84;
     private static final int CENTER_Y = 106;
     private static final int DETAIL_Y = 192;
+    private static final int DETAIL_H = 52;
 
     private final List<Perk> order = new ArrayList<>();
     private final int[] starX = new int[45];
@@ -49,6 +51,7 @@ public class PerkTreeScreen extends Screen {
         order.add(Perk.QUICK);
         order.add(Perk.RICH);
         order.add(Perk.NUTRIENT);
+        order.add(Perk.UNIVERSAL);
         order.add(Perk.HEARTY);
         order.add(Perk.IRON);
         order.add(Perk.HEALING);
@@ -75,7 +78,7 @@ public class PerkTreeScreen extends Screen {
 
     private static int colorOf(Perk perk) {
         return switch (perk) {
-            case HEALING, IRON, HEARTY, NUTRIENT -> SURVIVAL;
+            case HEALING, IRON, HEARTY, NUTRIENT, UNIVERSAL -> SURVIVAL;
             case RICH -> LOOT;
             default -> GROWTH;
         };
@@ -119,6 +122,7 @@ public class PerkTreeScreen extends Screen {
             case GOURMET -> "+" + rank * 5 + "% digest XP";
             case HEARTY -> String.format("+%.1f HP per digest", rank * 0.5);
             case NUTRIENT -> rank == 0 ? "not eating" : String.format("%d%% of food value, every %.1fs", Math.round(StomachItems.efficiency(rank) * 100), rank == 0 ? 0.0 : Math.max(10, 50 - 4 * rank) / 20.0);
+            case UNIVERSAL -> String.format("+%.1f Hunger Bars per %d items", StomachItems.hungerBars(rank), StomachItems.DIGEST_THRESHOLD);
             default -> "";
         };
     }
@@ -265,19 +269,27 @@ public class PerkTreeScreen extends Screen {
             g.drawString(font, names[i], x + 16, y + 25 + i * 10, 0xFFAAAAAA, false);
         }
 
-        // Details of the perk under the mouse
-        g.fill(x + 8, y + DETAIL_Y, x + W - 8, y + DETAIL_Y + 32, 0xFF0A0A0E);
+        // Details of the perk under the mouse: title, description (wraps to 2 lines), then Current / Next on their own lines
+        g.fill(x + 8, y + DETAIL_Y, x + W - 8, y + DETAIL_Y + DETAIL_H, 0xFF0A0A0E);
         if (hovered >= 0) {
             Perk perk = order.get(hovered);
             int rank = ClientState.rank(perk);
             g.drawString(font, perk.title + "  " + rank + "/" + perk.maxRank, x + 12, y + DETAIL_Y + 3,
                     rank >= perk.maxRank ? GOLD : colorOf(perk), false);
-            g.drawString(font, perk.description, x + 12, y + DETAIL_Y + 13, 0xFFA0A0A0, false);
-            String line = "Now: " + effect(perk, rank);
-            if (rank < perk.maxRank) line += "   Next: " + effect(perk, rank + 1);
-            g.drawString(font, font.plainSubstrByWidth(line, W - 24), x + 12, y + DETAIL_Y + 23, 0xFFFFFFFF, false);
+            List<FormattedCharSequence> desc = font.split(Component.literal(perk.description), W - 24);
+            for (int l = 0; l < Math.min(2, desc.size()); l++) {
+                g.drawString(font, desc.get(l), x + 12, y + DETAIL_Y + 13 + l * 9, 0xFFA0A0A0, false);
+            }
+            g.drawString(font, font.plainSubstrByWidth("Current: " + effect(perk, rank), W - 24),
+                    x + 12, y + DETAIL_Y + 32, 0xFFFFFFFF, false);
+            if (rank < perk.maxRank) {
+                g.drawString(font, font.plainSubstrByWidth("Next: " + effect(perk, rank + 1), W - 24),
+                        x + 12, y + DETAIL_Y + 41, 0xFF9DE0A8, false);
+            } else {
+                g.drawString(font, "Max rank", x + 12, y + DETAIL_Y + 41, GOLD, false);
+            }
         } else {
-            g.drawCenteredString(font, "Hover a perk to see what it does.", x + W / 2, y + DETAIL_Y + 12, 0xFF787882);
+            g.drawCenteredString(font, "Hover a perk to see what it does.", x + W / 2, y + DETAIL_Y + 22, 0xFF787882);
         }
 
         super.render(g, mouseX, mouseY, partialTick);

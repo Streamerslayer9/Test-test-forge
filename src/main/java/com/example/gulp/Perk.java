@@ -14,7 +14,9 @@ public enum Perk {
     IRON("Iron Stomach", "Struggling mobs hurt 5% less per rank.", 15),
     GOURMET("Gourmet", "+5% XP from digesting mobs per rank.", 20),
     HEARTY("Hearty Meal", "Heal 0.5 HP per rank whenever you digest a mob.", 10),
-    NUTRIENT("Nutrient Absorption", "Food in your item storage is eaten over time: faster and more filling per rank.", 10);
+    NUTRIENT("Nutrient Absorption", "Food in your item storage is eaten over time: faster and more filling per rank.", 10),
+    /** Iron Gut / Universal Digestion. Rank 0 is free and always active; each rank adds 0.5 hunger bars per 32 items. */
+    UNIVERSAL("Iron Gut", "Digest any 32 items stored in your stomach to restore hunger.", 3);
 
     public final String title;
     public final String description;

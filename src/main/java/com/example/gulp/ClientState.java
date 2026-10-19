@@ -21,6 +21,7 @@ public final class ClientState {
     private static boolean allowSwallowed;
     private static int predator;
     private static float itemFill;
+    private static int digestProgress;
     private static int level = 1, xp, xpNeeded = 100, points;
     private static float used, cap = 1.75f;
     private static int[] ranks = new int[Perk.values().length];
@@ -37,6 +38,7 @@ public final class ClientState {
         allowSwallowed = m.allowSwallowed;
         predator = m.predator;
         itemFill = m.itemFill;
+        digestProgress = m.digestProgress;
         ranks = m.ranks;
         entries = m.entries;
     }
@@ -74,6 +76,7 @@ public final class ClientState {
         allowSwallowed = false;
         predator = 0;
         itemFill = 0f;
+        digestProgress = 0;
         used = 0f;
         cap = 1.75f;
         ranks = new int[Perk.values().length];
@@ -87,6 +90,7 @@ public final class ClientState {
     public static boolean allowSwallowed() { return allowSwallowed; }
     public static int predator() { return predator; }
     public static float itemFill() { return itemFill; }
+    public static int digestProgress() { return digestProgress; }
     public static int level() { return level; }
     public static int xp() { return xp; }
     public static int xpNeeded() { return xpNeeded; }

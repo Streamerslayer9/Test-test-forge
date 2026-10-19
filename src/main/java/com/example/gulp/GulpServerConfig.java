@@ -18,6 +18,7 @@ public final class GulpServerConfig {
     public static final ForgeConfigSpec.BooleanValue TRASH_DISSOLVE_ENABLED;
     public static final ForgeConfigSpec.BooleanValue DECONSTRUCT_ENCHANTED;
     public static final ForgeConfigSpec.BooleanValue FOOD_DIGESTION_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue UNIVERSAL_DIGESTION_ENABLED;
     public static final ForgeConfigSpec.BooleanValue MCA_ENABLED;
     public static final ForgeConfigSpec.DoubleValue MCA_REACTION_MULTIPLIER;
     public static final ForgeConfigSpec.BooleanValue MCA_LOCKOUT_ENABLED;
@@ -62,6 +63,10 @@ public final class GulpServerConfig {
         FOOD_DIGESTION_ENABLED = b
                 .comment("If false, the Nutrient Absorption perk does nothing (food in storage is never eaten).")
                 .define("foodDigestionEnabled", true);
+        UNIVERSAL_DIGESTION_ENABLED = b
+                .comment("If false, the Eat buttons on the storage screen only eat food (Iron Gut / Universal Digestion does nothing).",
+                        "Otherwise any item can be eaten: every 32 items restores hunger (see the Iron Gut perk).")
+                .define("universalDigestionEnabled", true);
         MCA_ENABLED = b
                 .comment("Minecraft Comes Alive reactions (only does anything if MCA is installed): swallowing villagers changes",
                         "how they feel about you, and a 'predator' status makes frightened villagers refuse to talk to you.")

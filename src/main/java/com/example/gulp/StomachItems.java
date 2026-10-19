@@ -40,6 +40,15 @@ public final class StomachItems {
     /** Items in this tag dissolve in hard mode. Edit data/gulp/tags/items/stomach_trash.json or add to it in a datapack. */
     public static final TagKey<Item> TRASH = ItemTags.create(new ResourceLocation(Gulp.ID, "stomach_trash"));
 
+    /** Iron Gut / Universal Digestion: eating this many items of any kind pays out hunger. */
+    public static final int DIGEST_THRESHOLD = 32;
+
+    /** Hunger points (1 point = half a drumstick) restored per 32 items: 1 at rank 0, up to 4 at rank 3. */
+    public static int hungerPoints(int rank) { return 1 + Math.max(0, rank); }
+
+    /** The same payout in hunger bars (full drumsticks): 0.5 at rank 0 ... 2.0 at rank 3. */
+    public static float hungerBars(int rank) { return hungerPoints(rank) / 2f; }
+
     /** Ticks between deconstruction passes (20 per second). One gear item is broken down per pass. */
     private static final int DECON_INTERVAL = 60;
     /** How many trash items dissolve per pass when there is no gear to break down. */
@@ -116,9 +125,9 @@ public final class StomachItems {
     private static final int XP_PER_ITEM = 2;
 
     /**
-     * The Digest 1 / Digest 64 buttons: digests up to `count` items from the FIRST slot of the open storage screen.
-     * Gear with a crafting recipe is broken down into its parts; anything else is turned into stomach XP.
-     * Works in either mode. Goes through the open screen's own container so the screen stays in step.
+     * The Eat 1 / Eat 64 buttons: eats up to `count` items from the FIRST slot of the open storage screen.
+     * Food is eaten for its nutrition once Nutrient Absorption is unlocked; EVERYTHING ELSE (blocks, gear, junk) is digested
+     * by Iron Gut: it counts toward the 32-item payout and gives a little stomach XP. Works in either mode. Goes through the open screen's own container so the screen stays in step.
      */
     public static void digestFirstSlot(ServerPlayer p, Stomach s, SimpleContainer view, int count) {
         ItemStack stack = view.getItem(0);
@@ -132,8 +141,8 @@ public final class StomachItems {
             eatFirstSlot(p, s, view, count, foodRank);
             return;
         }
-        if (!GulpServerConfig.ITEM_DIGESTION_ENABLED.get()) {
-            StomachLogic.say(p, Component.literal("Item digestion is turned off on this server."));
+        if (!GulpServerConfig.UNIVERSAL_DIGESTION_ENABLED.get()) {
+            StomachLogic.say(p, Component.literal("Eating non-food items is turned off on this server."));
             return;
         }
         // Never destroy something that holds other items (shulker boxes, bundles ...).
@@ -141,40 +150,36 @@ public final class StomachItems {
             StomachLogic.say(p, Component.literal("Can't digest something that holds other items."));
             return;
         }
-        List<ItemStack> parts = stack.isDamageableItem() ? partsOf(p.getServer(), stack.getItem()) : null;
-        if (parts != null && stack.isEnchanted() && !GulpServerConfig.DECONSTRUCT_ENCHANTED.get()) {
-            StomachLogic.say(p, Component.literal("Enchanted gear is protected on this server."));
+        if (stack.isEnchanted() && !GulpServerConfig.DECONSTRUCT_ENCHANTED.get()) {
+            StomachLogic.say(p, Component.literal("Enchanted items are protected on this server."));
             return;
         }
 
         int n = Math.max(1, Math.min(Math.min(count, 64), stack.getCount()));
         Component name = stack.getHoverName();
-        double condition = stack.isDamageableItem()
-                ? 1.0 - stack.getDamageValue() / (double) Math.max(1, stack.getMaxDamage()) : 1.0;
         FoodProperties food = stack.getFoodProperties(p);
         int nutrition = food == null ? 0 : food.getNutrition();
 
         view.removeItem(0, n); // the screen's listener saves the change and syncs the client
 
-        if (parts != null) {
-            for (ItemStack part : parts) {
-                int each = Math.max(1, (int) Math.round(part.getCount() * (0.5 + 0.5 * condition)));
-                int total = each * n;
-                int chunk = Math.max(1, new ItemStack(part.getItem()).getMaxStackSize());
-                while (total > 0) {
-                    int c = Math.min(total, chunk);
-                    ItemStack left = view.addItem(new ItemStack(part.getItem(), c));
-                    if (!left.isEmpty()) ItemHandlerHelper.giveItemToPlayer(p, left);
-                    total -= c;
-                }
-            }
-            StomachLogic.say(p, Component.literal("Broke down " + n + "x ").append(name));
+        // Iron Gut: every 32 items eaten (of any kind) restores hunger. The counter lives in the Stomach, so it survives
+        // closing the screen, relogging and dying. Several payouts can happen at once (e.g. "Eat 64" = two).
+        int rank = s.rank(Perk.UNIVERSAL);
+        s.digestProgress += n;
+        int payouts = s.digestProgress / DIGEST_THRESHOLD;
+        s.digestProgress %= DIGEST_THRESHOLD;
+        int hunger = payouts * hungerPoints(rank);
+        if (hunger > 0) p.getFoodData().eat(hunger, 0f); // hunger only, no saturation; the bar can't overfill
+
+        float xp = n * (XP_PER_ITEM + nutrition);
+        StomachLogic.gainXp(p, s, xp);
+        Component msg = Component.literal("Ate " + n + "x ").append(name);
+        if (hunger > 0) {
+            msg = msg.copy().append(Component.literal(String.format(" (+%.1f hunger)", hunger / 2f)));
         } else {
-            float xp = n * (XP_PER_ITEM + nutrition);
-            StomachLogic.gainXp(p, s, xp);
-            StomachLogic.say(p, Component.literal("Digested " + n + "x ").append(name)
-                    .append(Component.literal(" (+" + (int) xp + " stomach XP)")));
+            msg = msg.copy().append(Component.literal(" (" + s.digestProgress + "/" + DIGEST_THRESHOLD + ")"));
         }
+        StomachLogic.say(p, msg);
         StomachLogic.sound(p, GulpSound.DIGEST_BUTTON);
         p.containerMenu.broadcastChanges();
     }
