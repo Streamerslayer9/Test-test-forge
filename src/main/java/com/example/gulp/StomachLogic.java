@@ -28,6 +28,8 @@ import net.minecraftforge.network.PacketDistributor;
 import org.slf4j.Logger;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Iterator;
 import java.util.UUID;
 
@@ -72,11 +74,15 @@ public final class StomachLogic {
 
     public static int pendingLooting() { return pendingLooting; }
 
+    /** Each player's currently open storage screen container, so the Digest buttons can't touch any other chest. */
+    private static final Map<UUID, SimpleContainer> OPEN_VIEWS = new HashMap<>();
+
     private StomachLogic() { }
 
     // 0 swallow | 1 toggle mode | 2 release last | 3 release all
     // 4 release entry (arg = uid) | 5 digest entry now (arg = uid) | 6 buy perk (arg = perk index)
     // 7 open item storage | 8 toggle "let players swallow me"
+    // 10 digest the first slot of the open storage screen (arg = how many, 1 or 64)
     // 9 swallow the item in an inventory slot (arg = slot in the inventory screen, plus 65536 for just one item)
     public static void handleAction(ServerPlayer p, int action, int arg) {
         if (p == null || !p.isAlive()) return;
@@ -138,6 +144,13 @@ public final class StomachLogic {
             }
             case 7 -> openStorage(p, mgr, s);
             case 9 -> swallowFromInventorySlot(p, s, arg);
+            case 10 -> {
+                if (GulpServerConfig.ITEM_STORAGE_ENABLED.get() && p.containerMenu instanceof ChestMenu cm
+                        && cm.getContainer() == OPEN_VIEWS.get(p.getUUID())
+                        && cm.getContainer() instanceof SimpleContainer view) {
+                    StomachItems.digestFirstSlot(p, s, view, arg);
+                }
+            }
             case 8 -> {
                 s.allowSwallowed = !s.allowSwallowed;
                 StomachLogic.say(p, Component.literal(s.allowSwallowed
@@ -320,6 +333,7 @@ public final class StomachLogic {
         SimpleContainer view = new SimpleContainer(slots);
         for (int i = 0; i < slots; i++) view.setItem(i, s.storage.get(i));
         // Every change made in the screen is copied straight back into the saved storage.
+        OPEN_VIEWS.put(p.getUUID(), view);
         view.addListener(c -> {
             for (int i = 0; i < slots; i++) s.storage.set(i, view.getItem(i));
             mgr.setDirty();

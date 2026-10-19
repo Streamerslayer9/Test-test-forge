@@ -7,6 +7,7 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
@@ -52,5 +53,25 @@ public final class ClientScreenEvents {
             mc.setScreen(new StomachScreen());   // and back to the stomach screen
         }).bounds(x, screen.getGuiTop(), width, 20).build();
         e.addListener(back);
+
+        // Digest buttons, top right of the title row. They only act on the first slot (the server checks too).
+        int bw = 34;
+        int bh = 12;
+        int by = screen.getGuiTop() + 3;
+        int right = screen.getGuiLeft() + screen.getXSize() - 7;
+        // With the Nutrient Absorption perk the buttons say "Eat" (food in the first slot is eaten for hunger).
+        boolean eat = ClientState.rank(Perk.NUTRIENT) > 0;
+        String verb = eat ? "Eat" : "Dig";
+        String what = eat ? "Eat (food) or digest" : "Digest";
+        Button digest64 = Button.builder(Component.literal(verb + " 64"), btn -> Net.send(10, 64))
+                .bounds(right - bw, by, bw, bh)
+                .tooltip(Tooltip.create(Component.literal(what + " up to 64 of the item in the first slot")))
+                .build();
+        Button digest1 = Button.builder(Component.literal(verb + " 1"), btn -> Net.send(10, 1))
+                .bounds(right - bw * 2 - 2, by, bw, bh)
+                .tooltip(Tooltip.create(Component.literal(what + " 1 of the item in the first slot")))
+                .build();
+        e.addListener(digest1);
+        e.addListener(digest64);
     }
 }

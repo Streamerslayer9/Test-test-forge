@@ -70,7 +70,13 @@ Install Minecraft Forge for 1.20.1, then put gulp-0.1.0.jar in the mods folder. 
   Switch: itemDigestionEnabled.
 - Trash (hard mode only): items in the tag gulp:stomach_trash dissolve (cobblestone, dirt, gravel, seeds ...). Edit
   data/gulp/tags/items/stomach_trash.json or add to it from a datapack. Switch: trashDissolveEnabled. Nothing else is ever destroyed.
-- Nothing happens while any container screen is open. Code: StomachItems.java.
+- Digest buttons (item storage screen, top right): "Dig 1" and "Dig 64" digest 1 / up to 64 of the item in the FIRST slot, in either mode.
+  Gear with a crafting recipe is broken down into its parts; anything else becomes stomach XP (2 per item, plus the nutrition for food;
+  XP_PER_ITEM in StomachItems.java). Things that hold items (shulker boxes, bundles) and enchanted gear (unless deconstructEnchanted) are refused.
+  The server checks that the storage screen is really open (action 10 in StomachLogic).
+- With Nutrient Absorption unlocked the buttons say "Eat 1" / "Eat 64": food in the first slot is eaten for hunger and saturation (perk
+  efficiency, stops when the hunger bar is full); anything that isn't food is still digested as above.
+- Nothing automatic happens while any container screen is open. Code: StomachItems.java.
 
 ## Visible belly
 The belly of every player model swells forward as their stomach fills (using the player's own skin).

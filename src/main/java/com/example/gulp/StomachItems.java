@@ -7,6 +7,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.food.FoodData;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
@@ -107,6 +108,110 @@ public final class StomachItems {
             return true;
         }
         return false;
+    }
+
+    // ------------------------------------------------------------------ manual Digest buttons (storage screen)
+
+    /** Stomach XP for digesting one item that can't be broken down (food adds its nutrition on top). */
+    private static final int XP_PER_ITEM = 2;
+
+    /**
+     * The Digest 1 / Digest 64 buttons: digests up to `count` items from the FIRST slot of the open storage screen.
+     * Gear with a crafting recipe is broken down into its parts; anything else is turned into stomach XP.
+     * Works in either mode. Goes through the open screen's own container so the screen stays in step.
+     */
+    public static void digestFirstSlot(ServerPlayer p, Stomach s, SimpleContainer view, int count) {
+        ItemStack stack = view.getItem(0);
+        if (stack.isEmpty()) {
+            StomachLogic.say(p, Component.literal("The first slot is empty."));
+            return;
+        }
+        // Nutrient Absorption unlocked: the buttons say "Eat", and food in the first slot is eaten for hunger.
+        int foodRank = s.rank(Perk.NUTRIENT);
+        if (foodRank > 0 && stack.getFoodProperties(p) != null && GulpServerConfig.FOOD_DIGESTION_ENABLED.get()) {
+            eatFirstSlot(p, s, view, count, foodRank);
+            return;
+        }
+        if (!GulpServerConfig.ITEM_DIGESTION_ENABLED.get()) {
+            StomachLogic.say(p, Component.literal("Item digestion is turned off on this server."));
+            return;
+        }
+        // Never destroy something that holds other items (shulker boxes, bundles ...).
+        if (stack.hasTag() && (stack.getTag().contains("BlockEntityTag") || stack.getTag().contains("Items"))) {
+            StomachLogic.say(p, Component.literal("Can't digest something that holds other items."));
+            return;
+        }
+        List<ItemStack> parts = stack.isDamageableItem() ? partsOf(p.getServer(), stack.getItem()) : null;
+        if (parts != null && stack.isEnchanted() && !GulpServerConfig.DECONSTRUCT_ENCHANTED.get()) {
+            StomachLogic.say(p, Component.literal("Enchanted gear is protected on this server."));
+            return;
+        }
+
+        int n = Math.max(1, Math.min(Math.min(count, 64), stack.getCount()));
+        Component name = stack.getHoverName();
+        double condition = stack.isDamageableItem()
+                ? 1.0 - stack.getDamageValue() / (double) Math.max(1, stack.getMaxDamage()) : 1.0;
+        FoodProperties food = stack.getFoodProperties(p);
+        int nutrition = food == null ? 0 : food.getNutrition();
+
+        view.removeItem(0, n); // the screen's listener saves the change and syncs the client
+
+        if (parts != null) {
+            for (ItemStack part : parts) {
+                int each = Math.max(1, (int) Math.round(part.getCount() * (0.5 + 0.5 * condition)));
+                int total = each * n;
+                int chunk = Math.max(1, new ItemStack(part.getItem()).getMaxStackSize());
+                while (total > 0) {
+                    int c = Math.min(total, chunk);
+                    ItemStack left = view.addItem(new ItemStack(part.getItem(), c));
+                    if (!left.isEmpty()) ItemHandlerHelper.giveItemToPlayer(p, left);
+                    total -= c;
+                }
+            }
+            StomachLogic.say(p, Component.literal("Broke down " + n + "x ").append(name));
+        } else {
+            float xp = n * (XP_PER_ITEM + nutrition);
+            StomachLogic.gainXp(p, s, xp);
+            StomachLogic.say(p, Component.literal("Digested " + n + "x ").append(name)
+                    .append(Component.literal(" (+" + (int) xp + " stomach XP)")));
+        }
+        StomachLogic.sound(p, GulpSound.DIGEST_BUTTON);
+        p.containerMenu.broadcastChanges();
+    }
+
+    /** Eat button: eats up to `count` of the food in the first slot, stopping when the hunger bar is full. */
+    private static void eatFirstSlot(ServerPlayer p, Stomach s, SimpleContainer view, int count, int rank) {
+        FoodData food = p.getFoodData();
+        ItemStack first = view.getItem(0);
+        Item item = first.getItem();
+        Component name = first.getHoverName();
+        int want = Math.max(1, Math.min(count, 64));
+        int eaten = 0;
+        float xp = 0f;
+        while (eaten < want && food.getFoodLevel() < 20) {
+            ItemStack st = view.getItem(0);
+            if (st.isEmpty() || st.getItem() != item) break;
+            FoodProperties fp = st.getFoodProperties(p);
+            if (fp == null) break;
+            int nutrition = Math.max(1, Math.round(fp.getNutrition() * efficiency(rank)));
+            ItemStack remainder = st.hasCraftingRemainingItem() ? st.getCraftingRemainingItem() : ItemStack.EMPTY;
+            view.removeItem(0, 1);
+            food.eat(nutrition, fp.getSaturationModifier());
+            if (!remainder.isEmpty()) {
+                ItemStack left = view.addItem(remainder); // a bowl, a bottle ...
+                if (!left.isEmpty()) ItemHandlerHelper.giveItemToPlayer(p, left);
+            }
+            xp += nutrition * 0.5f;
+            eaten++;
+        }
+        if (eaten == 0) {
+            StomachLogic.say(p, Component.literal("You're too full to eat."));
+            return;
+        }
+        StomachLogic.gainXp(p, s, xp);
+        StomachLogic.say(p, Component.literal("Ate " + eaten + "x ").append(name));
+        StomachLogic.sound(p, GulpSound.SWALLOW);
+        p.containerMenu.broadcastChanges();
     }
 
     // ------------------------------------------------------------------ Feature A: deconstruction
