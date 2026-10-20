@@ -33,8 +33,8 @@ Install Minecraft Forge for 1.20.1, then put gulp-0.1.0.jar in the mods folder. 
   digesting player's inventory (overflow lands at their feet). (DISSOLVE_SECONDS in StomachLogic.java.) Digesting gives 20 + 4 x the mob's max health in XP. Now and then (about 8% per mob per second)
   a mob struggles and hurts you: 2 HP plus 0.75 per 1.0 of mob volume, capped at 5 HP. Hard mode only; armor and Iron
   Stomach reduce it, and it never takes you below 2 hearts.
-- Perk points: the game hands out exactly enough points by level 99 to buy every rank of every perk (123 points for the
-  current 123 ranks), with none left over and none missing. Most levels give 1 point and about every eighth level
+- Perk points: the game hands out exactly enough points by level 99 to buy every rank of every perk (113 points for the
+  current 113 ranks), with none left over and none missing. Most levels give 1 point and about every eighth level
   gives 2 (see Stomach.cumulativePoints). If you add or change perks, the points adjust themselves. Older saves are
   topped up automatically to what their level should have earned.
   Spend them in N > Perks. There are two menus (switch with the Legacy / New look button, or Settings > Perk menu):
@@ -44,7 +44,7 @@ Install Minecraft Forge for 1.20.1, then put gulp-0.1.0.jar in the mods folder. 
   every 5s), Better Loot (10, +1 Looting level per 2 ranks on digested mobs, up to V), Quick Gulp (10, swallow
   cooldown -0.075s per rank anywhere and -0.15s per rank when looking up: 2s with no perk, 1.25s / 0.5s at 10 ranks),
   Iron Stomach (15, -5% struggle damage per rank), Gourmet (20, +5% XP from digesting per rank), Hearty Meal (10, heal
-  0.5 HP per rank for every mob you digest), Nutrient Absorption (10, food in item storage is eaten over time, see Item digestion), Iron Gut (3, more hunger per 32 items eaten, see Item digestion). Add more in Perk.java (append to the end).
+  0.5 HP per rank for every mob you digest), Iron Gut (3, more hunger per 32 items eaten, see Item digestion). Add more in Perk.java (append to the end).
 - Aiming: mobs have a slightly bigger hitbox for swallowing, and aiming near a mob (about 12 degrees) still counts.
 - The Ender Dragon and the Wither can never be swallowed.
 - Item storage: look at a dropped item and press V to swallow the stack into your item storage; or open your inventory, point at
@@ -61,9 +61,6 @@ Install Minecraft Forge for 1.20.1, then put gulp-0.1.0.jar in the mods folder. 
 - Stomach contents are saved with the world. Dying releases everything.
 
 ## Item digestion
-- Nutrient Absorption perk (any mode): food in your item storage is eaten over time, one item at a time (every 2.3s at rank 1, every 0.5s
-  at rank 10). Each rank gives more of the food's value (46% at rank 1, 100% at rank 10) and it only eats when your hunger bar has room.
-  Eating also gives a little stomach XP. Bowls and bottles left over go back into storage. Server switch: foodDigestionEnabled.
 - Gear deconstruction (hard mode only): tools, weapons, armor and other damageable items in item storage are broken down, one every 3 seconds,
   into the ingredients of their crafting recipe (iron chestplate -> 8 iron ingots). Worn gear gives back less (about half when nearly broken).
   Gear with no crafting recipe (netherite, some modded items) is kept. Enchanted gear is kept unless deconstructEnchanted is true.
@@ -71,8 +68,8 @@ Install Minecraft Forge for 1.20.1, then put gulp-0.1.0.jar in the mods folder. 
 - Trash (hard mode only): items in the tag gulp:stomach_trash dissolve (cobblestone, dirt, gravel, seeds ...). Edit
   data/gulp/tags/items/stomach_trash.json or add to it from a datapack. Switch: trashDissolveEnabled. Nothing else is ever destroyed.
 - Eat buttons (item storage screen, top right): "Eat 1" and "Eat 64" always say "Eat", whatever the item is. They act on the item in the
-  FIRST slot, in either mode. Food is eaten for hunger and saturation once Nutrient Absorption is unlocked (perk efficiency, stops when the
-  hunger bar is full). Everything else (blocks, gear, junk) is digested by the Iron Gut perk below. Things that hold items (shulker boxes,
+  FIRST slot, in either mode. Every item (food, blocks, gear, junk) is digested by the
+  Iron Gut perk below. Things that hold items (shulker boxes,
   bundles) and enchanted gear (unless deconstructEnchanted) are refused. The server checks that the storage screen is really open (action 10 in StomachLogic).
 - Iron Gut / Universal Digestion (perk, 3 ranks, rank 0 is free and always active): every 32 items eaten with the buttons (any kind) restores
   hunger. Rank 0 = 0.5 hunger bars (1 point) per 32 items, rank 1 = 1.0, rank 2 = 1.5, rank 3 = 2.0 (4 points). The running count is saved in the

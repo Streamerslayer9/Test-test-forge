@@ -50,7 +50,6 @@ public class PerkTreeScreen extends Screen {
         order.add(Perk.GOURMET);
         order.add(Perk.QUICK);
         order.add(Perk.RICH);
-        order.add(Perk.NUTRIENT);
         order.add(Perk.UNIVERSAL);
         order.add(Perk.HEARTY);
         order.add(Perk.IRON);
@@ -78,7 +77,7 @@ public class PerkTreeScreen extends Screen {
 
     private static int colorOf(Perk perk) {
         return switch (perk) {
-            case HEALING, IRON, HEARTY, NUTRIENT, UNIVERSAL -> SURVIVAL;
+            case HEALING, IRON, HEARTY, UNIVERSAL -> SURVIVAL;
             case RICH -> LOOT;
             default -> GROWTH;
         };
@@ -121,7 +120,6 @@ public class PerkTreeScreen extends Screen {
             case IRON -> "-" + rank * 5 + "% struggle damage";
             case GOURMET -> "+" + rank * 5 + "% digest XP";
             case HEARTY -> String.format("+%.1f HP per digest", rank * 0.5);
-            case NUTRIENT -> rank == 0 ? "not eating" : String.format("%d%% of food value, every %.1fs", Math.round(StomachItems.efficiency(rank) * 100), rank == 0 ? 0.0 : Math.max(10, 50 - 4 * rank) / 20.0);
             case UNIVERSAL -> String.format("+%.1f Hunger Bars per %d items", StomachItems.hungerBars(rank), StomachItems.DIGEST_THRESHOLD);
             default -> "";
         };

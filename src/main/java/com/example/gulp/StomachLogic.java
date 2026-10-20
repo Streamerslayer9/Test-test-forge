@@ -361,7 +361,7 @@ public final class StomachLogic {
             sync(p, s);
             mgr.setDirty();
         }
-        // Item storage: food is eaten (Nutrient Absorption perk) and, in hard mode, gear is broken down. Works with no mobs inside.
+        // Item storage: in hard mode, gear is broken down and trash dissolves. Works with no mobs inside.
         StomachItems.tick(p, mgr, s, s.hard && hardModeAllowed());
         if (s.contents.isEmpty()) return;
 

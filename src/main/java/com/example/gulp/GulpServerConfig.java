@@ -17,7 +17,6 @@ public final class GulpServerConfig {
     public static final ForgeConfigSpec.BooleanValue ITEM_DIGESTION_ENABLED;
     public static final ForgeConfigSpec.BooleanValue TRASH_DISSOLVE_ENABLED;
     public static final ForgeConfigSpec.BooleanValue DECONSTRUCT_ENCHANTED;
-    public static final ForgeConfigSpec.BooleanValue FOOD_DIGESTION_ENABLED;
     public static final ForgeConfigSpec.BooleanValue UNIVERSAL_DIGESTION_ENABLED;
     public static final ForgeConfigSpec.BooleanValue MCA_ENABLED;
     public static final ForgeConfigSpec.DoubleValue MCA_REACTION_MULTIPLIER;
@@ -60,9 +59,6 @@ public final class GulpServerConfig {
         DECONSTRUCT_ENCHANTED = b
                 .comment("If true, enchanted gear is broken down too (the enchantments are lost). If false it is left alone.")
                 .define("deconstructEnchanted", false);
-        FOOD_DIGESTION_ENABLED = b
-                .comment("If false, the Nutrient Absorption perk does nothing (food in storage is never eaten).")
-                .define("foodDigestionEnabled", true);
         UNIVERSAL_DIGESTION_ENABLED = b
                 .comment("If false, the Eat buttons on the storage screen only eat food (Iron Gut / Universal Digestion does nothing).",
                         "Otherwise any item can be eaten: every 32 items restores hunger (see the Iron Gut perk).")

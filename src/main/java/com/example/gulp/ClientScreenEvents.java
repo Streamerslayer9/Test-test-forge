@@ -62,16 +62,33 @@ public final class ClientScreenEvents {
         int by = screen.getGuiTop() + 3;
         int right = screen.getGuiLeft() + screen.getXSize() - 7;
         // The buttons ALWAYS say "Eat", whatever the item is (food, blocks, gear, junk).
-        Button digest64 = Button.builder(Component.literal("Eat 64"), btn -> Net.send(10, 64))
-                .bounds(right - bw, by, bw, bh)
-                .tooltip(Tooltip.create(Component.literal("Eat up to 64 of the item in the first slot")))
-                .build();
-        Button digest1 = Button.builder(Component.literal("Eat 1"), btn -> Net.send(10, 1))
-                .bounds(right - bw * 2 - 2, by, bw, bh)
-                .tooltip(Tooltip.create(Component.literal("Eat 1 of the item in the first slot")))
-                .build();
+        Button digest64 = new SmallTextButton(right - bw, by, bw, bh, Component.literal("Eat 64"), btn -> Net.send(10, 64));
+        digest64.setTooltip(Tooltip.create(Component.literal("Eat up to 64 of the item in the first slot")));
+        Button digest1 = new SmallTextButton(right - bw * 2 - 2, by, bw, bh, Component.literal("Eat 1"), btn -> Net.send(10, 1));
+        digest1.setTooltip(Tooltip.create(Component.literal("Eat 1 of the item in the first slot")));
         e.addListener(digest1);
         e.addListener(digest64);
+    }
+
+    /** A vanilla button whose label is drawn a little smaller, so "Eat 64" fits inside the small button. */
+    private static final class SmallTextButton extends Button {
+        private static final float TEXT_SCALE = 0.8f;
+
+        SmallTextButton(int x, int y, int w, int h, Component label, Button.OnPress onPress) {
+            super(x, y, w, h, label, onPress, Button.DEFAULT_NARRATION);
+        }
+
+        // Replaces the vanilla label drawing (called by Button.renderWidget) with a scaled, centered label.
+        public void renderString(GuiGraphics g, Font font, int color) {
+            Component label = getMessage();
+            float cx = getX() + getWidth() / 2f;
+            float cy = getY() + (getHeight() - font.lineHeight * TEXT_SCALE) / 2f + 0.5f;
+            g.pose().pushPose();
+            g.pose().translate(cx, cy, 0f);
+            g.pose().scale(TEXT_SCALE, TEXT_SCALE, 1f);
+            g.drawString(font, label, -font.width(label) / 2, 0, color);
+            g.pose().popPose();
+        }
     }
 
     // ------------------------------------------------------------------ Iron Gut progress tracker

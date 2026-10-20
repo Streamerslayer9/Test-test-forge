@@ -28,10 +28,7 @@ import java.util.Map;
 /**
  * Things that happen to the ITEMS in the stomach's item storage, on the server tick:
  *
- *  Feature B, Nutrient Absorption perk (any mode): food in storage is eaten over time. Each rank makes it faster and
- *  more filling. It only eats when you actually have room to be fed, and it never wastes food on a full bar.
- *
- *  Feature A, deconstruction (hard mode only, like mobs): damageable gear (tools, weapons, armor, bows, shields ...)
+ *  Deconstruction (hard mode only, like mobs): damageable gear (tools, weapons, armor, bows, shields ...)
  *  is broken down into the ingredients of its crafting recipe (iron armor -> iron ingots). The more worn the item,
  *  the fewer parts you get back. Gear with no crafting recipe (netherite, modded) is left alone, never deleted.
  *  Items in the data tag gulp:stomach_trash (cobblestone, dirt ...) simply dissolve. Nothing else is ever destroyed.
@@ -70,12 +67,6 @@ public final class StomachItems {
 
         boolean changed = false;
 
-        int foodRank = s.rank(Perk.NUTRIENT);
-        if (foodRank > 0 && GulpServerConfig.FOOD_DIGESTION_ENABLED.get()) {
-            int interval = Math.max(10, 50 - 4 * foodRank); // one item every 2.3s at rank 1, every 0.5s at rank 10
-            if (p.tickCount % interval == 0) changed |= eatOne(p, s, foodRank);
-        }
-
         if (hardNow && GulpServerConfig.ITEM_DIGESTION_ENABLED.get() && p.tickCount % DECON_INTERVAL == 0) {
             changed |= breakDownOne(p, s);
         }
@@ -86,39 +77,6 @@ public final class StomachItems {
         }
     }
 
-    // ------------------------------------------------------------------ Feature B: food
-
-    /** Share of a food's nutrition you get back: 46% at rank 1, 100% from rank 10. */
-    public static float efficiency(int rank) {
-        return Math.min(1f, 0.4f + 0.06f * rank);
-    }
-
-    /** @return true if one food item was eaten */
-    private static boolean eatOne(ServerPlayer p, Stomach s, int rank) {
-        FoodData food = p.getFoodData();
-        if (food.getFoodLevel() >= 20) return false;
-        int slots = s.storageSlots();
-        for (int i = 0; i < slots; i++) {
-            ItemStack stack = s.storage.get(i);
-            if (stack.isEmpty()) continue;
-            FoodProperties fp = stack.getFoodProperties(p);
-            if (fp == null) continue;
-            int nutrition = Math.max(1, Math.round(fp.getNutrition() * efficiency(rank)));
-            // Don't waste food: skip anything that would mostly overflow the hunger bar (try a smaller one instead).
-            if (food.getFoodLevel() > 20 - Math.max(1, nutrition / 2)) continue;
-
-            ItemStack remainder = stack.hasCraftingRemainingItem() ? stack.getCraftingRemainingItem() : ItemStack.EMPTY;
-            stack.shrink(1);
-            if (stack.isEmpty()) s.storage.set(i, ItemStack.EMPTY);
-            food.eat(nutrition, fp.getSaturationModifier());
-            if (!remainder.isEmpty()) stash(p, s, remainder); // a bowl, a bottle ...
-            // Perk XP: half the nutrition eaten (the server's xpMultiplier applies).
-            StomachLogic.gainXp(p, s, nutrition * 0.5f);
-            return true;
-        }
-        return false;
-    }
-
     // ------------------------------------------------------------------ manual Digest buttons (storage screen)
 
     /** Stomach XP for digesting one item that can't be broken down (food adds its nutrition on top). */
@@ -126,19 +84,13 @@ public final class StomachItems {
 
     /**
      * The Eat 1 / Eat 64 buttons: eats up to `count` items from the FIRST slot of the open storage screen.
-     * Food is eaten for its nutrition once Nutrient Absorption is unlocked; EVERYTHING ELSE (blocks, gear, junk) is digested
-     * by Iron Gut: it counts toward the 32-item payout and gives a little stomach XP. Works in either mode. Goes through the open screen's own container so the screen stays in step.
+     * Every item (food, blocks, gear, junk) is digested by Iron Gut: it counts toward the 32-item payout and gives a little
+     * stomach XP (food adds its nutrition on top). Works in either mode. Goes through the open screen's own container so the screen stays in step.
      */
     public static void digestFirstSlot(ServerPlayer p, Stomach s, SimpleContainer view, int count) {
         ItemStack stack = view.getItem(0);
         if (stack.isEmpty()) {
             StomachLogic.say(p, Component.literal("The first slot is empty."));
-            return;
-        }
-        // Nutrient Absorption unlocked: the buttons say "Eat", and food in the first slot is eaten for hunger.
-        int foodRank = s.rank(Perk.NUTRIENT);
-        if (foodRank > 0 && stack.getFoodProperties(p) != null && GulpServerConfig.FOOD_DIGESTION_ENABLED.get()) {
-            eatFirstSlot(p, s, view, count, foodRank);
             return;
         }
         if (!GulpServerConfig.UNIVERSAL_DIGESTION_ENABLED.get()) {
@@ -181,41 +133,6 @@ public final class StomachItems {
         }
         StomachLogic.say(p, msg);
         StomachLogic.sound(p, GulpSound.DIGEST_BUTTON);
-        p.containerMenu.broadcastChanges();
-    }
-
-    /** Eat button: eats up to `count` of the food in the first slot, stopping when the hunger bar is full. */
-    private static void eatFirstSlot(ServerPlayer p, Stomach s, SimpleContainer view, int count, int rank) {
-        FoodData food = p.getFoodData();
-        ItemStack first = view.getItem(0);
-        Item item = first.getItem();
-        Component name = first.getHoverName();
-        int want = Math.max(1, Math.min(count, 64));
-        int eaten = 0;
-        float xp = 0f;
-        while (eaten < want && food.getFoodLevel() < 20) {
-            ItemStack st = view.getItem(0);
-            if (st.isEmpty() || st.getItem() != item) break;
-            FoodProperties fp = st.getFoodProperties(p);
-            if (fp == null) break;
-            int nutrition = Math.max(1, Math.round(fp.getNutrition() * efficiency(rank)));
-            ItemStack remainder = st.hasCraftingRemainingItem() ? st.getCraftingRemainingItem() : ItemStack.EMPTY;
-            view.removeItem(0, 1);
-            food.eat(nutrition, fp.getSaturationModifier());
-            if (!remainder.isEmpty()) {
-                ItemStack left = view.addItem(remainder); // a bowl, a bottle ...
-                if (!left.isEmpty()) ItemHandlerHelper.giveItemToPlayer(p, left);
-            }
-            xp += nutrition * 0.5f;
-            eaten++;
-        }
-        if (eaten == 0) {
-            StomachLogic.say(p, Component.literal("You're too full to eat."));
-            return;
-        }
-        StomachLogic.gainXp(p, s, xp);
-        StomachLogic.say(p, Component.literal("Ate " + eaten + "x ").append(name));
-        StomachLogic.sound(p, GulpSound.SWALLOW);
         p.containerMenu.broadcastChanges();
     }
 
