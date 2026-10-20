@@ -68,7 +68,8 @@ Install Minecraft Forge for 1.20.1, then put gulp-0.1.0.jar in the mods folder. 
 - Trash (hard mode only): items in the tag gulp:stomach_trash dissolve (cobblestone, dirt, gravel, seeds ...). Edit
   data/gulp/tags/items/stomach_trash.json or add to it from a datapack. Switch: trashDissolveEnabled. Nothing else is ever destroyed.
 - Eat buttons (item storage screen, top right): "Eat 1" and "Eat 64" always say "Eat", whatever the item is. They act on the item in the
-  FIRST slot, in either mode. Every item (food, blocks, gear, junk) is digested by the
+  FIRST slot, in either mode. Gear that can be broken down (see above) is broken down into its parts instead of eaten, in either mode
+  (it does not count toward Iron Gut). Every other item (food, blocks, junk, gear with no recipe) is digested by the
   Iron Gut perk below. Things that hold items (shulker boxes,
   bundles) and enchanted gear (unless deconstructEnchanted) are refused. The server checks that the storage screen is really open (action 10 in StomachLogic).
 - Iron Gut / Universal Digestion (perk, 3 ranks, rank 0 is free and always active): every 32 items eaten with the buttons (any kind) restores

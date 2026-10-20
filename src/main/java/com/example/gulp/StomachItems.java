@@ -84,7 +84,8 @@ public final class StomachItems {
 
     /**
      * The Eat 1 / Eat 64 buttons: eats up to `count` items from the FIRST slot of the open storage screen.
-     * Every item (food, blocks, gear, junk) is digested by Iron Gut: it counts toward the 32-item payout and gives a little
+     * Gear that has a crafting recipe is broken down into its parts instead (in either mode). Every other item (food,
+     * blocks, junk) is digested by Iron Gut: it counts toward the 32-item payout and gives a little
      * stomach XP (food adds its nutrition on top). Works in either mode. Goes through the open screen's own container so the screen stays in step.
      */
     public static void digestFirstSlot(ServerPlayer p, Stomach s, SimpleContainer view, int count) {
@@ -105,6 +106,17 @@ public final class StomachItems {
         if (stack.isEnchanted() && !GulpServerConfig.DECONSTRUCT_ENCHANTED.get()) {
             StomachLogic.say(p, Component.literal("Enchanted items are protected on this server."));
             return;
+        }
+
+        // Gear that can be broken down is broken down into its crafting parts (iron sword -> iron + stick) instead of
+        // being eaten. It doesn't count toward the Iron Gut 32-item payout, the parts are what you get. Gear with no
+        // crafting recipe (netherite, some modded items) falls through and is eaten like any other item.
+        if (stack.isDamageableItem()) {
+            List<ItemStack> parts = partsOf(p.getServer(), stack.getItem());
+            if (parts != null) {
+                breakDownFirstSlot(p, s, view, count, parts);
+                return;
+            }
         }
 
         int n = Math.max(1, Math.min(Math.min(count, 64), stack.getCount()));
@@ -132,6 +144,28 @@ public final class StomachItems {
             msg = msg.copy().append(Component.literal(" (" + s.digestProgress + "/" + DIGEST_THRESHOLD + ")"));
         }
         StomachLogic.say(p, msg);
+        StomachLogic.sound(p, GulpSound.DIGEST_BUTTON);
+        p.containerMenu.broadcastChanges();
+    }
+
+    /** Eat button on breakable gear: breaks up to `count` of the first slot's item into its parts (worn gear gives back less). */
+    private static void breakDownFirstSlot(ServerPlayer p, Stomach s, SimpleContainer view, int count, List<ItemStack> parts) {
+        ItemStack stack = view.getItem(0);
+        int n = Math.max(1, Math.min(Math.min(count, 64), stack.getCount()));
+        Component name = stack.getHoverName();
+        double condition = 1.0 - stack.getDamageValue() / (double) Math.max(1, stack.getMaxDamage());
+
+        view.removeItem(0, n); // free the slot BEFORE adding the parts
+        for (int i = 0; i < n; i++) {
+            for (ItemStack part : parts) {
+                // Same as the hard-mode breakdown: 100% of the parts when new, about half when nearly broken.
+                int amount = Math.max(1, (int) Math.round(part.getCount() * (0.5 + 0.5 * condition)));
+                ItemStack left = view.addItem(new ItemStack(part.getItem(), amount));
+                if (!left.isEmpty()) ItemHandlerHelper.giveItemToPlayer(p, left); // storage full: goes to you
+            }
+        }
+        StomachLogic.gainXp(p, s, n * XP_PER_ITEM);
+        StomachLogic.say(p, Component.literal("Broke down " + n + "x ").append(name));
         StomachLogic.sound(p, GulpSound.DIGEST_BUTTON);
         p.containerMenu.broadcastChanges();
     }
