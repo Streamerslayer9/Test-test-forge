@@ -260,7 +260,7 @@ public final class PlayerHolding {
     /** The hard-mode timer ran out. By default they are let out weakened; with playerDigestionKills they die. */
     private static void finishDigestion(ServerPlayer swallower, CompoundTag entry, ServerPlayer victim) {
         Stomach s = StomachManager.get(swallower.getServer()).of(swallower.getUUID());
-        Component name = victim != null ? victim.getName() : entryName(entry);
+        Component name = victim != null ? victim.getName() : StomachLogic.entryName(entry);
         releaseEntry(swallower, entry); // gives them their game mode back and puts them down in front of the swallower
         if (victim != null) {
             if (GulpServerConfig.PLAYER_DIGESTION_KILLS.get()) {
