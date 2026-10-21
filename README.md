@@ -53,11 +53,49 @@ Install Minecraft Forge for 1.20.1, then put gulp-0.1.0.jar in the mods folder. 
   stomach screen to open it as a chest-style screen (shift-click moves items in and out; a Back button beside the window returns to the stomach screen). It starts at 1 row (9 slots)
   and gains a row every 17 levels, up to 6 rows (54 slots) at level 85. It is separate from the mob volume, saved with
   the world, safe in both modes, and drops like an inventory if you die (unless keepInventory is on).
-- Swallowing players (multiplayer): only players who turned on "Let players swallow me" in Settings (off by default) can
-  be swallowed. Swallowed players are only held: never hurt or digested. They see through the swallower's eyes (spectator
-  mode) and can get out at any time with the Release key (default G). They are also let out automatically after a while
-  (playerMaxHoldSeconds), when the swallower dies, logs out, changes dimension or the server stops. Their game mode is
-  remembered (even through a crash) and restored when they get out.
+- Player boundaries (multiplayer): every player picks a role in Settings ("Role" button, cycles Pred / Prey / Both / Neither; saved
+  on the server). Pred (the default) can swallow but can't be swallowed. Prey can be swallowed but can't swallow. Both can do both.
+  Neither turns vore off completely: no swallowing, can't be swallowed, and the stomach menu and HUD are hidden (the N key opens
+  Settings instead). Prey and Neither can't swallow anything, mobs and items included. Switching to a role that can't swallow lets
+  out everything you were holding. Old saves: "Let players swallow me" ON became Both, OFF became Pred.
+- Swallow requests: swallowing a player never happens straight away. The target gets [Accept] / [Decline] buttons in chat
+  (/gulp accept and /gulp decline do the same) and has 30 seconds. Everything is checked again when they accept (roles, size,
+  distance of 8 blocks). One request per target at a time, and after a decline the same player can't ask again for 60 seconds.
+- Role badges: pointing at a player shows "[Pred] Name" and a hint under the crosshair. Trying to swallow a Pred shows "This player
+  is a predator and cannot be swallowed" (a Neither player shows a similar "opted out" message).
+- Swallowing players (multiplayer): the mode (soft or hard) is fixed when the player is swallowed, and the request they accept says
+  which one it is (switching mode before they accept cancels it). Swallowed players are spectators looking through the swallower's
+  eyes. In both modes they are let out when the swallower dies, logs out, changes dimension or the server stops, and their game mode
+  is remembered (even through a crash) and restored. A HUD at the top shows them who holds them and what their keys do.
+  - Soft mode: they are only held, never harmed. Release (G) lets them out any time (or automatically after playerMaxHoldSeconds).
+    The Struggle key (R) is a wall rub: the swallower gets food, saturation, Regeneration and Speed, at most once per
+    playerWallRubCooldownSeconds.
+  - Hard mode (needs playerHardVoreEnabled): a digestion timer runs (playerDigestSeconds, default 3 minutes). Release does not
+    work. The Struggle key (R, once a second at most) rolls playerStruggleChancePercent (default 12%, falling to half as digestion
+    nears 100%) to break free. When the timer ends they are let out weakened, or die if playerDigestionKills is true (default
+    false); the swallower gets XP and food. The request warns about the death setting.
+  - Dynamic messages: the swallower's action bar shows "[Name] squirms in your gut" on a failed struggle, "[Name] rubs your
+    stomach walls", "[Name] broke free!", "[Name] slept soundly in your gut".
+  - Potions: drinking a potion also gives its effects to everyone inside. Instant damage and Wither are never passed on, and other
+    harmful effects only reach players held in hard mode.
+  - Co-op sleep: players inside don't count towards "everyone must sleep" (they are spectators), so they never hold up the night. When
+    the swallower sleeps through the night, they sleep through it too: their rest timer resets (no phantoms) and they get a message.
+- Advanced items and equipment:
+  - Enchant Stripper (perk, 3 ranks, unlocks at stomach level 50): the storage screen has a panel under Back with two boxes (they show
+    slot 1 and slot 2, the first two storage slots) and two bars. Strip moves the enchantments off the gear in slot 1 into an enchanted
+    book in your storage. Transfer (soft mode only) moves them from slot 1 (gear or enchanted book) onto the item in slot 2, skipping
+    enchantments the item can't take or that conflict. Every enchantment loses (3 - rank) levels; an enchantment that would drop below
+    level 1 is never destroyed (strip refuses if nothing would survive). Code: EnchantTools.
+  - Mending Gut (perk, 5 ranks, unlocks at stomach level 60): every 5 seconds, damaged gear and tools in the item storage repair
+    2 durability per rank. Runs while the storage screen is closed, in both modes (note hard mode also breaks gear down over time).
+  - Shared storage: a swallowed player presses the stomach key (N) to see the swallower's item storage, read-only, refreshing every 2
+    seconds. Server switch: sharedStorageViewEnabled.
+  - Hazard warnings: swallowing sharp or hazardous items from the inventory (V key) first shows a warning that must be confirmed, then
+    deals hazardSelfDamage (default 2 HP, never below 2 hearts, none in creative). Swords, axes, tridents, shears and arrows always
+    count; edit the tag data/gulp/tags/items/stomach_hazardous.json for the rest (cactus, lava, TNT ...). The server refuses an
+    unconfirmed hazardous swallow.
+  - Nested weighting: shulker boxes and bundles weigh their contents (each item like a stack in a slot, times nestedWeightMultiplier,
+    default 1.0, on top of the box itself), so the item belly grows with what is inside. Code: Stomach.weightOf.
 - Stomach contents are saved with the world. Dying releases everything.
 
 ## Item digestion
