@@ -4,7 +4,9 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
@@ -34,7 +36,19 @@ public final class ClientScreenEvents {
         Slot slot = screen.getSlotUnderMouse();
         // Only your own inventory and hotbar (not armor, the offhand or the crafting grid).
         if (slot == null || !slot.hasItem() || !(slot.container instanceof Inventory) || slot.getSlotIndex() >= 36) return;
-        Net.send(9, slot.index | (Screen.hasControlDown() ? 1 << 16 : 0));
+        int arg = slot.index | (Screen.hasControlDown() ? 1 << 16 : 0);
+        ItemStack item = slot.getItem();
+        if (HazardItems.isHazardous(item) && !Minecraft.getInstance().player.isCreative()) {
+            // Sharp or hazardous: ask first. "Yes" sends the swallow with the "confirmed" bit (17) set.
+            Minecraft mc = Minecraft.getInstance();
+            mc.setScreen(new ConfirmScreen(yes -> {
+                mc.setScreen(screen); // back to the inventory either way
+                if (yes) Net.send(9, arg | (1 << 17));
+            }, Component.literal("Warning: sharp or hazardous item"),
+                    Component.literal("Swallowing " + item.getHoverName().getString() + " will hurt you. Swallow it anyway?")));
+        } else {
+            Net.send(9, arg);
+        }
         e.setCanceled(true);
     }
 
@@ -55,6 +69,25 @@ public final class ClientScreenEvents {
             mc.setScreen(new StomachScreen());   // and back to the stomach screen
         }).bounds(x, screen.getGuiTop(), width, 20).build();
         e.addListener(back);
+
+        // Enchant Stripper panel under Back: two boxes showing slot 1 and slot 2 (drawn in onStorageRender), and two bars.
+        int rank = ClientState.rank(Perk.STRIP);
+        int lost = Math.max(0, 3 - rank);
+        int barY = screen.getGuiTop() + PANEL_OFFSET_Y + BOX + 4;
+        Button strip = new SmallTextButton(x, barY, width, 14, Component.literal("Strip"), btn -> Net.send(12));
+        Button transfer = new SmallTextButton(x, barY + 16, width, 14, Component.literal("Transfer"), btn -> Net.send(13));
+        strip.active = rank >= 1;
+        transfer.active = rank >= 1 && !ClientState.isHard();
+        strip.setTooltip(Tooltip.create(Component.literal(rank < 1
+                ? "Needs the Enchant Stripper perk (stomach level 50)."
+                : "Strip the enchantments off the gear in slot 1 into an enchanted book in your storage. Levels lost per enchantment: " + lost + ".")));
+        transfer.setTooltip(Tooltip.create(Component.literal(rank < 1
+                ? "Needs the Enchant Stripper perk (stomach level 50)."
+                : ClientState.isHard()
+                ? "Soft mode only."
+                : "Move the enchantments from slot 1 onto the item in slot 2. Levels lost per enchantment: " + lost + ".")));
+        e.addListener(strip);
+        e.addListener(transfer);
 
         // Digest buttons, top right of the title row. They only act on the first slot (the server checks too).
         int bw = 34;
@@ -94,6 +127,29 @@ public final class ClientScreenEvents {
     // ------------------------------------------------------------------ Iron Gut progress tracker
 
     private static final int BAR_W = 90;
+    // Enchant Stripper panel layout (matches the sketch: two boxes, then two bars, under the Back button)
+    private static final int PANEL_OFFSET_Y = 24;
+    private static final int BOX = 24;
+    private static final int BLUE = 0xFF3A78C8;
+
+    private static int panelX(ContainerScreen screen) {
+        int x = screen.getGuiLeft() - 52 - 4;
+        return x < 2 ? screen.getGuiLeft() + screen.getXSize() + 4 : x;
+    }
+
+    /** One of the two preview boxes: blue frame, the item inside, and a tooltip when hovered. */
+    private static void renderBox(GuiGraphics g, Font font, int bx, int by, ItemStack stack, String empty, int mx, int my) {
+        g.fill(bx, by, bx + BOX, by + BOX, BLUE);
+        g.fill(bx + 1, by + 1, bx + BOX - 1, by + BOX - 1, 0xFF101A2A);
+        if (!stack.isEmpty()) {
+            g.renderItem(stack, bx + 4, by + 4);
+            g.renderItemDecorations(font, stack, bx + 4, by + 4);
+        }
+        if (mx >= bx && mx < bx + BOX && my >= by && my < by + BOX) {
+            if (stack.isEmpty()) g.renderTooltip(font, Component.literal(empty), mx, my);
+            else g.renderTooltip(font, stack, mx, my);
+        }
+    }
 
     /** Just under the storage window (or just above it when there's no room below). */
     private static int trackerY(ContainerScreen screen) {
@@ -112,6 +168,15 @@ public final class ClientScreenEvents {
 
         Font font = Minecraft.getInstance().font;
         GuiGraphics g = e.getGuiGraphics();
+
+        // Enchant Stripper boxes: slot 1 (source) and slot 2 (target), always the first two storage slots.
+        int px = panelX(screen);
+        int py = screen.getGuiTop() + PANEL_OFFSET_Y;
+        renderBox(g, font, px, py, screen.getMenu().getSlot(0).getItem(), "Slot 1: the enchanted gear", e.getMouseX(), e.getMouseY());
+        if (screen.getMenu().slots.size() > 1) {
+            renderBox(g, font, px + BOX + 4, py, screen.getMenu().getSlot(1).getItem(), "Slot 2: the item to enchant", e.getMouseX(), e.getMouseY());
+        }
+
         int progress = ClientState.digestProgress();
         int threshold = StomachItems.DIGEST_THRESHOLD;
         String text = "Digestion Progress: " + progress + " / " + threshold + " Items";

@@ -38,6 +38,8 @@ public class PerksScreen extends Screen {
             case GOURMET -> new ItemStack(Items.COOKED_BEEF);
             case HEARTY -> new ItemStack(Items.GOLDEN_CARROT);
             case UNIVERSAL -> new ItemStack(Items.COMPOSTER);
+            case STRIP -> new ItemStack(Items.ENCHANTED_BOOK);
+            case MENDING -> new ItemStack(Items.ANVIL);
         };
     }
 

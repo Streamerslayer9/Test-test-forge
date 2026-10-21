@@ -29,6 +29,12 @@ public final class Net {
                 MessagePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, LevelUpPacket.class, LevelUpPacket::encode, LevelUpPacket::decode,
                 LevelUpPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, StorageViewPacket.class, StorageViewPacket::encode, StorageViewPacket::decode,
+                StorageViewPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, HeldPacket.class, HeldPacket::encode, HeldPacket::decode,
+                HeldPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, RolesPacket.class, RolesPacket::encode, RolesPacket::decode,
+                RolesPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     /** Client -> server: an action with no argument. */

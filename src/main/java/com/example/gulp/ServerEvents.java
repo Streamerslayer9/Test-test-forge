@@ -1,12 +1,18 @@
 package com.example.gulp;
 
+import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.PotionItem;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingEntityUseItemEvent;
+import net.minecraftforge.event.level.SleepFinishedTimeEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
 import net.minecraftforge.event.entity.living.LootingLevelEvent;
@@ -36,8 +42,39 @@ public final class ServerEvents {
         if (!(e.getEntity() instanceof ServerPlayer p)) return;
         PlayerHolding.onLogin(p);
         StomachLogic.sync(p, StomachManager.get(p.getServer()).of(p.getUUID()));
+        RolesPacket.broadcast(p.getServer()); // everyone learns the new player's role, and the new player learns everyone's
         // Test/dev helper: tell the player whether we connected to Minecraft Comes Alive.
         if (GulpServerConfig.MCA_STATUS_MESSAGE.get()) p.sendSystemMessage(McaIntegration.status());
+    }
+
+    // Potions the swallower drinks also affect the players inside their stomach.
+    @SubscribeEvent
+    public static void onPotionDrunk(LivingEntityUseItemEvent.Finish e) {
+        if (!(e.getEntity() instanceof ServerPlayer p) || !(e.getItem().getItem() instanceof PotionItem)) return;
+        PlayerHolding.transferPotion(p, e.getItem());
+    }
+
+    // The night was skipped: players inside a sleeping swallower's stomach sleep through it too.
+    @SubscribeEvent
+    public static void onSleepFinished(SleepFinishedTimeEvent e) {
+        if (!(e.getLevel() instanceof ServerLevel level)) return;
+        for (ServerPlayer p : level.players()) {
+            if (p.isSleeping()) PlayerHolding.sleepThroughNight(p);
+        }
+    }
+
+    // /gulp accept and /gulp decline: the answer to a swallow request (the chat buttons run these).
+    @SubscribeEvent
+    public static void onRegisterCommands(RegisterCommandsEvent e) {
+        e.getDispatcher().register(Commands.literal("gulp")
+                .then(Commands.literal("accept").executes(c -> {
+                    VoreRequests.respond(c.getSource().getPlayerOrException(), true);
+                    return 1;
+                }))
+                .then(Commands.literal("decline").executes(c -> {
+                    VoreRequests.respond(c.getSource().getPlayerOrException(), false);
+                    return 1;
+                })));
     }
 
     // Anyone swallowed (or swallowing) when a player leaves is let out, so nobody is left stuck as a spectator.

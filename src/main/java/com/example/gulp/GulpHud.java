@@ -2,6 +2,7 @@ package com.example.gulp;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.entity.player.Player;
 
 /** Placeholder HUD built from plain rectangles. Swap these for your pixel art textures later. */
 public final class GulpHud {
@@ -12,9 +13,50 @@ public final class GulpHud {
         g.drawString(mc.font, text, rightEdge - mc.font.width(text), y, color);
     }
 
+    /** Pointing at another player shows their role badge under the crosshair. */
+    private static void renderRoleBadge(GuiGraphics g, Minecraft mc, int screenWidth, int screenHeight) {
+        if (!(mc.crosshairPickEntity instanceof Player other) || other == mc.player) return;
+        Role role = ClientState.roleOf(other.getUUID());
+        if (role == null) return;
+        int cx = screenWidth / 2;
+        int cy = screenHeight / 2 + 14;
+        g.drawCenteredString(mc.font, "[" + role.label + "] " + other.getName().getString(), cx, cy, role.color);
+        g.drawCenteredString(mc.font, role.hint, cx, cy + 10, 0xFFAAAAAA);
+    }
+
+    /** What a swallowed player sees: who holds them, and what the Struggle key does right now. */
+    private static void renderHeldOverlay(GuiGraphics g, Minecraft mc, int screenWidth) {
+        int mode = ClientState.heldMode();
+        if (mode == 0) return;
+        String key = ClientModEvents.STRUGGLE_KEY.getTranslatedKeyMessage().getString();
+        int cx = screenWidth / 2;
+        int y = 24;
+        if (mode == 1) {
+            g.drawCenteredString(mc.font, "Swallowed by " + ClientState.heldHolder() + " [SOFT]", cx, y, 0xFFFFFF55);
+            g.drawCenteredString(mc.font, "[" + key + "] rub the walls   [" + ClientModEvents.RELEASE_KEY
+                    .getTranslatedKeyMessage().getString() + "] leave   [" + ClientModEvents.SCREEN_KEY
+                    .getTranslatedKeyMessage().getString() + "] view storage", cx, y + 11, 0xFFDDDDDD);
+            return;
+        }
+        g.drawCenteredString(mc.font, "Swallowed by " + ClientState.heldHolder() + " [HARD]", cx, y, 0xFFFF5555);
+        int w = 120;
+        int x = cx - w / 2;
+        g.fill(x - 1, y + 11, x + w + 1, y + 21, 0xFF000000);
+        g.fill(x, y + 12, x + w, y + 20, 0xFF333333);
+        g.fill(x, y + 12, x + (int) (w * Math.min(1f, ClientState.heldProgress())), y + 20, 0xFFC0502E);
+        g.drawCenteredString(mc.font, String.format("Digested %.0f%%   [%s] struggle (%.0f%% to break free)",
+                ClientState.heldProgress() * 100f, key, ClientState.heldChance()), cx, y + 24, 0xFFDDDDDD);
+        g.drawCenteredString(mc.font, "[" + ClientModEvents.SCREEN_KEY.getTranslatedKeyMessage().getString()
+                + "] view their storage", cx, y + 35, 0xFFAAAAAA);
+    }
+
     public static void render(GuiGraphics g, int screenWidth, int screenHeight) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.options.hideGui || mc.player == null) return;
+
+        renderRoleBadge(g, mc, screenWidth, screenHeight);
+        renderHeldOverlay(g, mc, screenWidth);
+        if (!ClientState.role().canEat()) return; // Prey / Neither: no stomach, so no stomach HUD
 
         int w = 100;
         int rightEdge = screenWidth - 8;

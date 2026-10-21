@@ -50,10 +50,12 @@ public class PerkTreeScreen extends Screen {
         order.add(Perk.GOURMET);
         order.add(Perk.QUICK);
         order.add(Perk.RICH);
+        order.add(Perk.STRIP);
         order.add(Perk.UNIVERSAL);
         order.add(Perk.HEARTY);
         order.add(Perk.IRON);
         order.add(Perk.HEALING);
+        order.add(Perk.MENDING);
         for (Perk p : Perk.values()) {
             if (!order.contains(p)) order.add(p); // a perk added later still shows up
         }
@@ -77,8 +79,8 @@ public class PerkTreeScreen extends Screen {
 
     private static int colorOf(Perk perk) {
         return switch (perk) {
-            case HEALING, IRON, HEARTY, UNIVERSAL -> SURVIVAL;
-            case RICH -> LOOT;
+            case HEALING, IRON, HEARTY, UNIVERSAL, MENDING -> SURVIVAL;
+            case RICH, STRIP -> LOOT;
             default -> GROWTH;
         };
     }
@@ -121,6 +123,8 @@ public class PerkTreeScreen extends Screen {
             case GOURMET -> "+" + rank * 5 + "% digest XP";
             case HEARTY -> String.format("+%.1f HP per digest", rank * 0.5);
             case UNIVERSAL -> String.format("+%.1f Hunger Bars per %d items", StomachItems.hungerBars(rank), StomachItems.DIGEST_THRESHOLD);
+            case STRIP -> rank == 0 ? "Locked" : rank >= 3 ? "No levels lost" : "-" + (3 - rank) + " level(s) per enchant";
+            case MENDING -> rank == 0 ? "No repair" : "+" + rank * 2 + " durability / 5s per item";
             default -> "";
         };
     }
@@ -280,7 +284,9 @@ public class PerkTreeScreen extends Screen {
             }
             g.drawString(font, font.plainSubstrByWidth("Current: " + effect(perk, rank), W - 24),
                     x + 12, y + DETAIL_Y + 32, 0xFFFFFFFF, false);
-            if (rank < perk.maxRank) {
+            if (ClientState.level() < perk.minLevel) {
+                g.drawString(font, "Unlocks at stomach level " + perk.minLevel, x + 12, y + DETAIL_Y + 41, 0xFFE0A050, false);
+            } else if (rank < perk.maxRank) {
                 g.drawString(font, font.plainSubstrByWidth("Next: " + effect(perk, rank + 1), W - 24),
                         x + 12, y + DETAIL_Y + 41, 0xFF9DE0A8, false);
             } else {

@@ -18,7 +18,14 @@ public final class ClientState {
     public record EntryInfo(int uid, Component name, String typeId, float size, float hp, float maxHp, float digest) { }
 
     private static boolean hard;
-    private static boolean allowSwallowed;
+    // While swallowed: 0 = not, 1 = soft, 2 = hard, plus who holds you, how digested you are and your escape chance.
+    private static int heldMode;
+    private static String heldHolder = "";
+    private static float heldProgress;
+    private static float heldChance;
+    private static Role role = Role.PRED;
+    /** Everyone's role, from the server (for the "point at a player" badge). */
+    private static final java.util.Map<java.util.UUID, Role> roles = new java.util.HashMap<>();
     private static int predator;
     private static float itemFill;
     private static int digestProgress;
@@ -35,7 +42,7 @@ public final class ClientState {
         used = m.used;
         cap = m.cap;
         points = m.points;
-        allowSwallowed = m.allowSwallowed;
+        role = Role.byId(m.role) != null ? Role.byId(m.role) : Role.PRED;
         predator = m.predator;
         itemFill = m.itemFill;
         digestProgress = m.digestProgress;
@@ -73,7 +80,9 @@ public final class ClientState {
         xp = 0;
         xpNeeded = Stomach.xpForNext(1);
         points = 0;
-        allowSwallowed = false;
+        role = Role.PRED;
+        roles.clear();
+        heldMode = 0;
         predator = 0;
         itemFill = 0f;
         digestProgress = 0;
@@ -87,7 +96,29 @@ public final class ClientState {
     }
 
     public static boolean isHard() { return hard; }
-    public static boolean allowSwallowed() { return allowSwallowed; }
+    public static Role role() { return role; }
+
+    public static void setHeld(int mode, String holder, float progress, float chance) {
+        heldMode = mode;
+        heldHolder = holder;
+        heldProgress = progress;
+        heldChance = chance;
+    }
+    public static int heldMode() { return heldMode; }
+    public static String heldHolder() { return heldHolder; }
+    public static float heldProgress() { return heldProgress; }
+    public static float heldChance() { return heldChance; }
+
+    /** Another player's role, or null if the server hasn't told us. */
+    public static Role roleOf(java.util.UUID id) { return roles.get(id); }
+
+    public static void setRoles(java.util.Map<java.util.UUID, Integer> map) {
+        roles.clear();
+        map.forEach((id, r) -> {
+            Role role = Role.byId(r);
+            if (role != null) roles.put(id, role);
+        });
+    }
     public static int predator() { return predator; }
     public static float itemFill() { return itemFill; }
     public static int digestProgress() { return digestProgress; }

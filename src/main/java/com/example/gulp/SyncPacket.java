@@ -13,7 +13,7 @@ import java.util.function.Supplier;
 public class SyncPacket {
     public boolean hard;
     public int level, xp, xpNeeded, points;
-    public boolean allowSwallowed;
+    public int role;
     public int predator;
     public float itemFill;
     public int digestProgress;
@@ -30,7 +30,7 @@ public class SyncPacket {
         m.used = (float) s.used();
         m.cap = (float) s.capacity();
         m.points = s.points;
-        m.allowSwallowed = s.allowSwallowed;
+        m.role = s.role.ordinal();
         m.predator = s.predator;
         m.itemFill = s.itemFill();
         m.digestProgress = s.digestProgress;
@@ -54,7 +54,7 @@ public class SyncPacket {
         buf.writeFloat(m.used);
         buf.writeFloat(m.cap);
         buf.writeInt(m.points);
-        buf.writeBoolean(m.allowSwallowed);
+        buf.writeByte(m.role);
         buf.writeInt(m.predator);
         buf.writeFloat(m.itemFill);
         buf.writeInt(m.digestProgress);
@@ -81,7 +81,7 @@ public class SyncPacket {
         m.used = buf.readFloat();
         m.cap = buf.readFloat();
         m.points = buf.readInt();
-        m.allowSwallowed = buf.readBoolean();
+        m.role = buf.readByte();
         m.predator = buf.readInt();
         m.itemFill = buf.readFloat();
         m.digestProgress = buf.readInt();

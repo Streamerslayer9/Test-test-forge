@@ -34,6 +34,9 @@ public final class ClientModEvents {
     public static final KeyMapping INVENTORY_SWALLOW_KEY = new KeyMapping("key.gulp.inventory_swallow",
             KeyConflictContext.GUI, InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, "key.category.gulp");
 
+    /** Swallowed players only: struggle to break free (hard mode) or rub the stomach walls (soft mode). */
+    public static final KeyMapping STRUGGLE_KEY = new KeyMapping("key.gulp.struggle", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.category.gulp");
+
     public static final KeyMapping SCREEN_KEY = new KeyMapping("key.gulp.screen", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, "key.category.gulp");
 
     @SubscribeEvent
@@ -58,6 +61,7 @@ public final class ClientModEvents {
         e.register(SWALLOW_KEY);
         e.register(MODE_KEY);
         e.register(RELEASE_KEY);
+        e.register(STRUGGLE_KEY);
         e.register(SCREEN_KEY);
         e.register(INVENTORY_SWALLOW_KEY);
     }

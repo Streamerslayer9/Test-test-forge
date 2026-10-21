@@ -37,6 +37,9 @@ public final class StomachItems {
     /** Items in this tag dissolve in hard mode. Edit data/gulp/tags/items/stomach_trash.json or add to it in a datapack. */
     public static final TagKey<Item> TRASH = ItemTags.create(new ResourceLocation(Gulp.ID, "stomach_trash"));
 
+    /** Mending Gut: ticks between repair passes (5 seconds). Each pass repairs 2 durability per rank on every damaged item. */
+    public static final int MEND_INTERVAL = 100;
+
     /** Iron Gut / Universal Digestion: eating this many items of any kind pays out hunger. */
     public static final int DIGEST_THRESHOLD = 32;
 
@@ -69,6 +72,19 @@ public final class StomachItems {
 
         if (hardNow && GulpServerConfig.ITEM_DIGESTION_ENABLED.get() && p.tickCount % DECON_INTERVAL == 0) {
             changed |= breakDownOne(p, s);
+        }
+
+        // Mending Gut: damaged gear and tools in the storage slowly repair themselves.
+        int mend = s.rank(Perk.MENDING);
+        if (mend > 0 && p.tickCount % MEND_INTERVAL == 0) {
+            int amount = mend * 2;
+            for (int i = 0; i < s.storageSlots(); i++) {
+                ItemStack stack = s.storage.get(i);
+                if (!stack.isEmpty() && stack.isDamaged()) {
+                    stack.setDamageValue(Math.max(0, stack.getDamageValue() - amount));
+                    changed = true;
+                }
+            }
         }
 
         if (changed) {

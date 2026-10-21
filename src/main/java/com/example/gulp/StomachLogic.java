@@ -81,19 +81,29 @@ public final class StomachLogic {
 
     // 0 swallow | 1 toggle mode | 2 release last | 3 release all
     // 4 release entry (arg = uid) | 5 digest entry now (arg = uid) | 6 buy perk (arg = perk index)
-    // 7 open item storage | 8 toggle "let players swallow me"
+    // 7 open item storage | 8 set your role (arg = Role ordinal)
+    // 12 strip slot 1 into an enchanted book | 13 transfer slot 1 enchantments to slot 2 (soft mode)
+    // 11 swallowed player: struggle (hard mode) / rub the walls (soft mode)
     // 10 digest the first slot of the open storage screen (arg = how many, 1 or 64)
     // 9 swallow the item in an inventory slot (arg = slot in the inventory screen, plus 65536 for just one item)
     public static void handleAction(ServerPlayer p, int action, int arg) {
         if (p == null || !p.isAlive()) return;
-        // A swallowed player can do exactly one thing: get out (the Release key).
+        // A swallowed player can only try to get out (Release, soft mode only) or struggle / rub the walls (action 11).
         if (PlayerHolding.isHeld(p)) {
-            if (action == 2 || action == 3) PlayerHolding.escape(p);
+            if (action == 2 || action == 3) PlayerHolding.tryRelease(p);
+            else if (action == 11) PlayerHolding.struggle(p);
+            else if (action == 7) PlayerHolding.sendSharedStorage(p); // look at the swallower's storage (read-only)
             return;
         }
         if (p.isSpectator()) return;
         StomachManager mgr = StomachManager.get(p.getServer());
         Stomach s = mgr.of(p.getUUID());
+        // Roles: Prey and Neither have no swallowing, mode switch, digesting or item storage at all.
+        // (Release, perks and changing your role always work.)
+        if (!s.role.canEat() && (action == 0 || action == 1 || action == 5 || action == 7 || action == 9 || action == 10 || action == 12 || action == 13)) {
+            StomachLogic.say(p, s.role.cantSwallowMessage());
+            return;
+        }
         switch (action) {
             case 0 -> swallow(p, s, arg);
             case 1 -> {
@@ -144,6 +154,14 @@ public final class StomachLogic {
             }
             case 7 -> openStorage(p, mgr, s);
             case 9 -> swallowFromInventorySlot(p, s, arg);
+            case 12, 13 -> {
+                // Enchant Stripper buttons on the storage screen: 12 = strip slot 1 into a book, 13 = transfer slot 1 -> slot 2.
+                if (GulpServerConfig.ITEM_STORAGE_ENABLED.get() && p.containerMenu instanceof ChestMenu cm
+                        && cm.getContainer() == OPEN_VIEWS.get(p.getUUID())
+                        && cm.getContainer() instanceof SimpleContainer view) {
+                    if (action == 12) EnchantTools.strip(p, s, view); else EnchantTools.transfer(p, s, view);
+                }
+            }
             case 10 -> {
                 if (GulpServerConfig.ITEM_STORAGE_ENABLED.get() && p.containerMenu instanceof ChestMenu cm
                         && cm.getContainer() == OPEN_VIEWS.get(p.getUUID())
@@ -152,16 +170,33 @@ public final class StomachLogic {
                 }
             }
             case 8 -> {
-                s.allowSwallowed = !s.allowSwallowed;
-                StomachLogic.say(p, Component.literal(s.allowSwallowed
-                        ? "Other players can now swallow you (you can always get out with the Release key)."
-                        : "Other players can no longer swallow you."));
+                // Set your role (arg = Role ordinal).
+                Role newRole = Role.byId(arg);
+                if (newRole != null && newRole != s.role) {
+                    s.role = newRole;
+                    if (!newRole.canEat()) {
+                        // Someone who can't swallow can't keep holding anyone: everything is let out.
+                        boolean any = false;
+                        Iterator<CompoundTag> it = s.contents.iterator();
+                        while (it.hasNext()) {
+                            if (release(p, it.next())) {
+                                it.remove();
+                                any = true;
+                            }
+                        }
+                        if (any) sound(p, GulpSound.SPIT);
+                    }
+                    StomachLogic.say(p, Component.literal("Your role is now " + newRole.label + ". " + newRole.description));
+                    RolesPacket.broadcast(p.getServer());
+                }
             }
             case 6 -> {
                 // arg = perk index in the low 8 bits, how many ranks to buy above that (0 or 1 means one)
                 Perk perk = Perk.byIndex(arg & 0xFF);
                 int count = Math.max(1, Math.min(100, arg >> 8));
-                if (perk != null) {
+                if (perk != null && s.level < perk.minLevel) {
+                    say(p, Component.literal(perk.title + " unlocks at stomach level " + perk.minLevel + "."));
+                } else if (perk != null) {
                     int bought = Math.min(count, Math.min(s.points, perk.maxRank - s.rank(perk)));
                     if (bought > 0) {
                         s.ranks[perk.ordinal()] += bought;
@@ -199,9 +234,8 @@ public final class StomachLogic {
             return;
         }
         if (target instanceof ServerPlayer victim) {
-            if (PlayerHolding.swallow(p, s, victim, StomachManager.get(p.getServer()))) {
-                finishSwallow(p, s, victim.getName());
-            }
+            // Players are never swallowed on the spot: they get a request they can accept or decline.
+            PlayerHolding.request(p, s, victim, StomachManager.get(p.getServer()));
             return;
         }
         if (!(target instanceof LivingEntity le)) {
@@ -257,7 +291,7 @@ public final class StomachLogic {
     }
 
     /** Starts the swallow cooldown, plays the sound and shows the message. */
-    private static void finishSwallow(ServerPlayer p, Stomach s, Component what) {
+    static void finishSwallow(ServerPlayer p, Stomach s, Component what) {
         // Quick Gulp perk: every rank takes 0.075s off the cooldown anywhere, and 0.15s when looking up.
         // 2s with no perk; with 10 ranks it is 1.25s anywhere and 0.5s when looking up.
         int quick = s.rank(Perk.QUICK);
@@ -306,6 +340,13 @@ public final class StomachLogic {
         if (!(slot.container instanceof Inventory) || slot.getSlotIndex() >= 36 || !slot.hasItem()) return;
 
         ItemStack stack = slot.getItem();
+        // Sharp / hazardous items hurt. The client shows a warning and sends "confirmed" (bit 17); the server insists on it.
+        boolean hazardous = HazardItems.isHazardous(stack) && !p.isCreative();
+        boolean confirmed = (arg & (1 << 17)) != 0;
+        if (hazardous && !confirmed) {
+            say(p, Component.literal("Careful! Swallowing " + stack.getHoverName().getString() + " would hurt you. Confirm the warning first."));
+            return;
+        }
         int wanted = justOne ? 1 : stack.getCount();
         ItemStack offer = stack.copy();
         offer.setCount(wanted);
@@ -320,6 +361,14 @@ public final class StomachLogic {
         p.containerMenu.broadcastChanges();
         sound(p, GulpSound.SWALLOW);
         say(p, Component.literal("Gulp! Swallowed " + taken + "x ").append(name));
+        if (hazardous) {
+            // Never below 2 hearts, so a hazard can hurt but not kill.
+            float damage = Math.min(GulpServerConfig.HAZARD_SELF_DAMAGE.get().floatValue(), p.getHealth() - 4f);
+            if (damage > 0f) {
+                p.hurt(p.damageSources().generic(), damage);
+                say(p, Component.literal("Ouch! " + name.getString() + " hurt on the way down."));
+            }
+        }
     }
 
     /** Opens the item storage as a chest-style screen (shift-click moves items in and out like a chest). */

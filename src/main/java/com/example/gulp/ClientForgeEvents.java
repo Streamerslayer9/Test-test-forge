@@ -33,10 +33,16 @@ public final class ClientForgeEvents {
             Entity target = TargetFinder.find(mc.player, TargetFinder.REACH);
             Net.send(0, target == null ? -1 : target.getId());
         }
+        while (ClientModEvents.STRUGGLE_KEY.consumeClick()) Net.send(11);
         while (ClientModEvents.MODE_KEY.consumeClick()) Net.send(1);
         while (ClientModEvents.RELEASE_KEY.consumeClick()) Net.send(mc.player.isShiftKeyDown() ? 3 : 2);
         while (ClientModEvents.SCREEN_KEY.consumeClick()) {
-            if (mc.screen == null) mc.setScreen(new StomachScreen());
+            if (ClientState.heldMode() > 0) { // swallowed: look at the swallower's item storage instead
+                if (mc.screen == null) Net.send(7);
+                continue;
+            }
+            // Pred / Both get the stomach menu. Prey / Neither have no stomach, so the key opens Settings (to change role).
+            if (mc.screen == null) mc.setScreen(ClientState.role().canEat() ? new StomachScreen() : new SettingsScreen());
         }
     }
 }

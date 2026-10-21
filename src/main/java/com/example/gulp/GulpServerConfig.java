@@ -14,6 +14,14 @@ public final class GulpServerConfig {
     public static final ForgeConfigSpec.BooleanValue ITEM_STORAGE_ENABLED;
     public static final ForgeConfigSpec.BooleanValue PLAYER_SWALLOWING_ENABLED;
     public static final ForgeConfigSpec.IntValue PLAYER_MAX_HOLD_SECONDS;
+    public static final ForgeConfigSpec.BooleanValue PLAYER_HARD_VORE_ENABLED;
+    public static final ForgeConfigSpec.IntValue PLAYER_DIGEST_SECONDS;
+    public static final ForgeConfigSpec.DoubleValue PLAYER_STRUGGLE_CHANCE;
+    public static final ForgeConfigSpec.BooleanValue PLAYER_DIGESTION_KILLS;
+    public static final ForgeConfigSpec.IntValue PLAYER_WALL_RUB_COOLDOWN_SECONDS;
+    public static final ForgeConfigSpec.DoubleValue NESTED_WEIGHT_MULTIPLIER;
+    public static final ForgeConfigSpec.DoubleValue HAZARD_SELF_DAMAGE;
+    public static final ForgeConfigSpec.BooleanValue SHARED_STORAGE_VIEW_ENABLED;
     public static final ForgeConfigSpec.BooleanValue ITEM_DIGESTION_ENABLED;
     public static final ForgeConfigSpec.BooleanValue TRASH_DISSOLVE_ENABLED;
     public static final ForgeConfigSpec.BooleanValue DECONSTRUCT_ENCHANTED;
@@ -43,12 +51,44 @@ public final class GulpServerConfig {
                 .define("itemStorageEnabled", true);
         PLAYER_SWALLOWING_ENABLED = b
                 .comment("If false, players can't swallow each other at all.",
-                        "Even when true, a player can only be swallowed if they turned on 'Let players swallow me' themselves,",
-                        "swallowed players are only held (never harmed or digested), and they can leave any time.")
+                        "Even when true, only players whose role is Prey or Both can be swallowed, and only after they accept a request;",
+                        "swallowed players can leave any time with the Release key, unless it is hard mode (see playerHardVoreEnabled).")
                 .define("playerSwallowingEnabled", true);
         PLAYER_MAX_HOLD_SECONDS = b
                 .comment("Longest a swallowed player is held before they are let out automatically.")
                 .defineInRange("playerMaxHoldSeconds", 300, 10, 3600);
+        PLAYER_HARD_VORE_ENABLED = b
+                .comment("If false, players are always held softly, even when the swallower is in hard mode.",
+                        "If true, a player swallowed in hard mode is digested over playerDigestSeconds and can only get out",
+                        "by struggling (the Release key does not work for them). The request they accept says which mode it is.")
+                .define("playerHardVoreEnabled", true);
+        PLAYER_DIGEST_SECONDS = b
+                .comment("Hard mode only: how long a swallowed player takes to be digested.")
+                .defineInRange("playerDigestSeconds", 180, 30, 3600);
+        PLAYER_STRUGGLE_CHANCE = b
+                .comment("Hard mode only: percent chance that one struggle (once per second at most) frees a swallowed player.",
+                        "It drops to half of this as digestion nears 100%.")
+                .defineInRange("playerStruggleChancePercent", 12.0, 1.0, 100.0);
+        PLAYER_DIGESTION_KILLS = b
+                .comment("Hard mode only: what happens when the digestion timer of a swallowed player runs out.",
+                        "false (default) = they are let out, weakened and slowed for a while. true = they die.",
+                        "Players are always warned in the request they accept.")
+                .define("playerDigestionKills", false);
+        PLAYER_WALL_RUB_COOLDOWN_SECONDS = b
+                .comment("Soft mode: how often a swallowed player can rub the stomach walls (gives the swallower food and buffs).")
+                .defineInRange("playerWallRubCooldownSeconds", 10, 1, 300);
+        NESTED_WEIGHT_MULTIPLIER = b
+                .comment("Shulker boxes and bundles weigh what is inside them: each item counts like a stack in a slot,",
+                        "times this number, on top of the box itself. 0 = boxes always weigh one slot. This drives the item belly size.")
+                .defineInRange("nestedWeightMultiplier", 1.0, 0.0, 2.0);
+        HAZARD_SELF_DAMAGE = b
+                .comment("Health points (2 = one heart) you take when you swallow something sharp or hazardous (swords, axes, cactus, lava ...).",
+                        "You are warned first and must confirm. It never takes you below 2 hearts and creative players take none. 0 = no damage.",
+                        "Edit the item tag gulp:stomach_hazardous to change which items count (swords, axes, tridents, shears and arrows always do).")
+                .defineInRange("hazardSelfDamage", 2.0, 0.0, 10.0);
+        SHARED_STORAGE_VIEW_ENABLED = b
+                .comment("If true, a swallowed player can look at (not touch) the item storage of whoever swallowed them.")
+                .define("sharedStorageViewEnabled", true);
         ITEM_DIGESTION_ENABLED = b
                 .comment("Hard mode only: gear in the item storage (tools, weapons, armor) is broken down into its crafting ingredients over time.",
                         "If false, stored items are never touched by hard mode.")
